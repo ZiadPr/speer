@@ -15,6 +15,7 @@ const ar = {
     copyLink: 'نسخ الرابط',
     copied: 'تم النسخ',
     shareLink: 'مشاركة',
+    qrCode: 'رمز QR',
     cameraOff: 'الكاميرا متوقفة',
     micLevel: 'مستوى الميكروفون',
     camera: 'الكاميرا',

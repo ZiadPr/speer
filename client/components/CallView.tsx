@@ -7,6 +7,7 @@ import {
   Monitor,
   MonitorOff,
   PhoneOff,
+  QrCode,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -18,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import type { MediaDeviceList } from '../lib/mediaDevices.ts';
 import { useCallStore } from '../stores/useCallStore.ts';
 import { useSettingsStore } from '../stores/useSettingsStore.ts';
+import { QrCodeModal } from './QrCodeModal.tsx';
 import { StatsOverlay } from './StatsOverlay.tsx';
 
 interface CallViewProps {
@@ -66,6 +68,7 @@ export function CallView({
   const [devicePopoverOpen, setDevicePopoverOpen] = useState(false);
   const [sasOpen, setSasOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const shareUrl = `${window.location.origin}/r/${roomCode}#${roomSecret}`;
   const showStats = showLiveStats || statsPanelOpen;
@@ -183,14 +186,26 @@ export function CallView({
                   ? t('call.connecting')
                   : t('call.waitingForPeer')}
             </p>
-            <button
-              type="button"
-              onClick={handleCopyInvite}
-              className="min-h-[44px] px-4 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black text-xs font-medium inline-flex items-center gap-2 hover:border-black dark:hover:border-white transition-colors cursor-pointer"
-            >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? t('call.copied') : t('call.copyInvite')}</span>
-            </button>
+            <div className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyInvite}
+                className="min-h-[44px] px-4 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black text-xs font-medium inline-flex items-center gap-2 hover:border-black dark:hover:border-white transition-colors cursor-pointer"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? t('call.copied') : t('call.copyInvite')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setQrOpen(true)}
+                aria-label={t('prejoin.qrCode')}
+                title={t('prejoin.qrCode')}
+                className="min-h-[44px] px-3.5 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black text-xs font-medium inline-flex items-center gap-2 hover:border-black dark:hover:border-white transition-colors cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>{t('prejoin.qrCode')}</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -371,6 +386,12 @@ export function CallView({
           </div>
         </div>
       </main>
+      <QrCodeModal
+        open={qrOpen}
+        url={shareUrl}
+        roomCode={roomCode}
+        onClose={() => setQrOpen(false)}
+      />
     </div>
   );
 }

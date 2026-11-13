@@ -1,0 +1,29 @@
+name = "speer"
+main = "cloudflare/worker.ts"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/ws", "/api/*"]
+
+[observability]
+enabled = false
+
+[vars]
+VITE_STUN_REGIONS = '[{"region":"us","urls":"stun:stun.l.google.com:19302"},{"region":"eu","urls":"stun:stun1.l.google.com:19302"},{"region":"ap","urls":"stun:stun2.l.google.com:19302"},{"region":"sa","urls":"stun:stun3.l.google.com:19302"}]'
+STUN_URLS = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+TURN_SERVERS = "[]"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomDurableObject"
+
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimitDurableObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomDurableObject", "RateLimitDurableObject"]

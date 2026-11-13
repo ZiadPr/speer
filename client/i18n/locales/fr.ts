@@ -15,6 +15,7 @@ const fr = {
     copyLink: 'Copier le lien',
     copied: 'Copié',
     shareLink: 'Partager',
+    qrCode: 'QR',
     cameraOff: 'Caméra désactivée',
     micLevel: 'Niveau du micro',
     camera: 'Caméra',

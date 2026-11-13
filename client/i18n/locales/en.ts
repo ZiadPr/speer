@@ -15,6 +15,7 @@ const en = {
     copyLink: 'Copy link',
     copied: 'Copied',
     shareLink: 'Share',
+    qrCode: 'QR',
     cameraOff: 'Camera off',
     micLevel: 'Microphone level',
     camera: 'Camera',

@@ -1,9 +1,10 @@
-import { ArrowLeft, Check, Copy, Mic, MicOff, Share2, Video, VideoOff } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Mic, MicOff, QrCode, Share2, Video, VideoOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MediaDeviceList } from '../lib/mediaDevices.ts';
 import { useCallStore } from '../stores/useCallStore.ts';
 import { useSettingsStore } from '../stores/useSettingsStore.ts';
+import { QrCodeModal } from './QrCodeModal.tsx';
 
 interface PreJoinViewProps {
   devices: MediaDeviceList;
@@ -41,6 +42,7 @@ export function PreJoinView({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const shareUrl = `${window.location.origin}/r/${roomCode}#${roomSecret}`;
   const canNativeShare = typeof navigator.share === 'function';
@@ -193,6 +195,16 @@ export function PreJoinView({
                   <span className="hidden sm:inline">{t('prejoin.shareLink')}</span>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setQrOpen(true)}
+                aria-label={t('prejoin.qrCode')}
+                title={t('prejoin.qrCode')}
+                className="min-h-[40px] min-w-[40px] px-2.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 hover:border-black dark:hover:border-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('prejoin.qrCode')}</span>
+              </button>
             </div>
           </div>
 
@@ -286,6 +298,12 @@ export function PreJoinView({
           </div>
         </div>
       </div>
+      <QrCodeModal
+        open={qrOpen}
+        url={shareUrl}
+        roomCode={roomCode}
+        onClose={() => setQrOpen(false)}
+      />
     </main>
   );
 }
