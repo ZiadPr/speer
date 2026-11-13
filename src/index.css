@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@font-face {
+  font-family: 'Arabic UI Display Black';
+  src:
+    local('Arabic UI Display Black'),
+    local('ArabicUIDisplay-Black'),
+    local('.SFArabic-Black'),
+    local('SF Arabic Black'),
+    local('Arabic UI Display'),
+    local('ArabicUIDisplay-Bold');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF UI Display';
+  src:
+    local('SF UI Display'),
+    local('SFUIDisplay-Regular'),
+    local('SF Pro Display'),
+    local('SFProDisplay-Regular');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF UI Display';
+  src:
+    local('SF UI Display Medium'),
+    local('SFUIDisplay-Medium'),
+    local('SF Pro Display Medium'),
+    local('SFProDisplay-Medium');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF UI Display';
+  src:
+    local('SF UI Display Semibold'),
+    local('SFUIDisplay-Semibold'),
+    local('SF Pro Display Semibold'),
+    local('SFProDisplay-Semibold');
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF UI Display';
+  src:
+    local('SF UI Display Bold'),
+    local('SFUIDisplay-Bold'),
+    local('SF Pro Display Bold'),
+    local('SFProDisplay-Bold');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF UI Display';
+  src:
+    local('SF UI Display Black'),
+    local('SFUIDisplay-Black'),
+    local('SF Pro Display Black'),
+    local('SFProDisplay-Black');
+  font-weight: 800 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --font-en: 'SF UI Display', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', sans-serif;
+    --font-ar: 'Arabic UI Display Black', 'Arabic UI Display', 'SF Arabic', 'Readex Pro', sans-serif;
+    --font-sans: var(--font-en);
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  html {
+    font-family: var(--font-en);
+  }
+
+  html[lang='ar'],
+  [dir='rtl'] {
+    font-family: var(--font-ar);
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  *:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

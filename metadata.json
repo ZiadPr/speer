@@ -1,0 +1,6 @@
+{
+  "name": "Speer",
+  "description": "Private 1:1 peer-to-peer encrypted video calling.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
