@@ -40,6 +40,17 @@ function getUnencryptedHeaderLength(frame: EncodedFrame, kind: 'audio' | 'video'
   return frame.type === 'key' ? 10 : 3;
 }
 
+function hasMagicTrailer(src: Uint8Array): boolean {
+  if (src.byteLength <= TRAILER_BYTES) return false;
+  const magicStart = src.byteLength - MAGIC.length;
+  for (let i = 0; i < MAGIC.length; i++) {
+    if (src[magicStart + i] !== MAGIC[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 async function encryptFrame(
   frame: EncodedFrame,
   kind: 'audio' | 'video',
@@ -93,31 +104,26 @@ async function decryptFrame(
   controller: TransformStreamDefaultController<EncodedFrame>
 ) {
   const src = new Uint8Array(frame.data);
-  if (!activeKey || src.byteLength <= TRAILER_BYTES) {
+  const isEncrypted = hasMagicTrailer(src);
+
+  if (!isEncrypted) {
+    // Unencrypted transition frame prior to key activation
     controller.enqueue(frame);
+    return;
+  }
+
+  if (!activeKey) {
+    // Drop encrypted frame arriving before local ECDH key derivation completes
     return;
   }
 
   const magicStart = src.byteLength - MAGIC.length;
-  let hasMagic = true;
-  for (let i = 0; i < MAGIC.length; i++) {
-    if (src[magicStart + i] !== MAGIC[i]) {
-      hasMagic = false;
-      break;
-    }
-  }
-
-  if (!hasMagic) {
-    controller.enqueue(frame);
-    return;
-  }
-
-  const headerLen = Math.min(getUnencryptedHeaderLength(frame, kind), magicStart - IV_BYTES);
+  const ivStart = magicStart - IV_BYTES;
+  const headerLen = Math.min(getUnencryptedHeaderLength(frame, kind), ivStart);
   if (headerLen < 0) {
     return;
   }
 
-  const ivStart = magicStart - IV_BYTES;
   const header = src.subarray(0, headerLen);
   const ciphertext = src.subarray(headerLen, ivStart);
   const iv = src.subarray(ivStart, magicStart);
@@ -141,7 +147,7 @@ async function decryptFrame(
     frame.data = out.buffer;
     controller.enqueue(frame);
   } catch {
-    // Drop frames that fail authentication (stale key or tampered frame)
+    // Drop frames that fail authentication
   }
 }
 

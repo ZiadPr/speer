@@ -19,7 +19,7 @@ interface EncryptedSignalPayload {
 }
 
 interface DataChannelControlMessage {
-  type: 'e2ee-key' | 'media-state';
+  type: 'e2ee-key' | 'e2ee-ready' | 'media-state';
   publicKey?: string;
   micMuted?: boolean;
   cameraOff?: boolean;
@@ -55,12 +55,19 @@ function preferOpusFecDtx(sdp: string): string {
   return updated.join('\r\n');
 }
 
-function applyVideoCodecPreferences(transceiver: RTCRtpTransceiver) {
+function applyVideoCodecPreferences(
+  transceiver: RTCRtpTransceiver,
+  preferVp8ForE2ee: boolean
+) {
   if (typeof transceiver.setCodecPreferences !== 'function') return;
   const capabilities = RTCRtpReceiver.getCapabilities?.('video');
   if (!capabilities?.codecs?.length) return;
 
-  const priority = ['video/AV1', 'video/VP9', 'video/H264', 'video/VP8'];
+  // Frame-level RTCRtpScriptTransform preserves VP8's 10/3-byte uncompressed header;
+  // AV1/VP9/H264 packetizers parse internal bitstream structures and fail when encrypted.
+  const priority = preferVp8ForE2ee
+    ? ['video/VP8', 'video/VP9', 'video/H264', 'video/AV1']
+    : ['video/AV1', 'video/VP9', 'video/H264', 'video/VP8'];
   const preferred: RTCRtpCodec[] = [];
   const rest: RTCRtpCodec[] = [];
 
@@ -118,6 +125,8 @@ export class WebRtcCallManager {
   private videoSender: RTCRtpSender | null = null;
   private screenStream: MediaStream | null = null;
   private cameraTrackRestore: MediaStreamTrack | null = null;
+  private remoteMediaStream = new MediaStream();
+  private pendingIceCandidates: RTCIceCandidateInit[] = [];
 
   public async connect(params: {
     roomId: string;
@@ -171,20 +180,34 @@ export class WebRtcCallManager {
       }
     }
 
+    const preferVp8 = Boolean(this.e2eeController?.supported);
     for (const transceiver of pc.getTransceivers()) {
       if (transceiver.sender.track?.kind === 'video') {
-        applyVideoCodecPreferences(transceiver);
+        applyVideoCodecPreferences(transceiver, preferVp8);
       }
     }
 
     pc.ontrack = (event) => {
-      const stream = event.streams[0] ?? new MediaStream([event.track]);
       if (event.track.kind === 'audio') {
         this.e2eeController?.attachReceiver(event.receiver, 'audio');
       } else if (event.track.kind === 'video') {
         this.e2eeController?.attachReceiver(event.receiver, 'video');
       }
-      useCallStore.getState().setRemoteStream(stream);
+
+      const existing = this.remoteMediaStream.getTracks();
+      if (!existing.some((t) => t.id === event.track.id)) {
+        // Remove stale ended tracks of same kind
+        for (const old of existing) {
+          if (old.kind === event.track.kind && old.readyState === 'ended') {
+            this.remoteMediaStream.removeTrack(old);
+          }
+        }
+        this.remoteMediaStream.addTrack(event.track);
+      }
+
+      useCallStore
+        .getState()
+        .setRemoteStream(new MediaStream(this.remoteMediaStream.getTracks()));
     };
 
     pc.ondatachannel = (event) => {
@@ -273,6 +296,8 @@ export class WebRtcCallManager {
           } else {
             this.pendingRemotePubKey = msg.publicKey;
           }
+        } else if (msg.type === 'e2ee-ready') {
+          this.requestVideoKeyFrame();
         }
       } catch {
         // Ignore malformed control frame
@@ -282,6 +307,13 @@ export class WebRtcCallManager {
     if (channel.readyState === 'open') {
       trySendKey();
     }
+  }
+
+  private requestVideoKeyFrame() {
+    const sender = this.videoSender as (RTCRtpSender & {
+      generateKeyFrame?: (rids?: string[]) => Promise<void>;
+    }) | null;
+    void sender?.generateKeyFrame?.().catch(() => {});
   }
 
   private async finalizeE2ee(remotePublicKeyB64: string) {
@@ -295,6 +327,10 @@ export class WebRtcCallManager {
       this.e2eeController.setMediaKey(mediaKeyBytes);
       useCallStore.getState().setE2eeActive(true);
       useCallStore.getState().setSasCode(sasCode);
+      if (this.dataChannel?.readyState === 'open') {
+        this.dataChannel.send(JSON.stringify({ type: 'e2ee-ready' }));
+      }
+      this.requestVideoKeyFrame();
     } catch {
       // Leave E2EE inactive on error
     }
@@ -350,6 +386,8 @@ export class WebRtcCallManager {
 
       if (msg.type === 'peer-left') {
         this.remotePeerId = null;
+        this.pendingIceCandidates = [];
+        this.remoteMediaStream = new MediaStream();
         useCallStore.getState().setPeerConnected(false);
         useCallStore.getState().setPeerLeft(true);
         useCallStore.getState().setRemoteStream(null);
@@ -448,6 +486,15 @@ export class WebRtcCallManager {
         await this.pc.setRemoteDescription(description);
         this.isSettingRemoteAnswerPending = false;
 
+        // Flush any ICE candidates that arrived before remoteDescription was ready
+        if (this.pendingIceCandidates.length > 0) {
+          const queued = this.pendingIceCandidates;
+          this.pendingIceCandidates = [];
+          for (const candidate of queued) {
+            await this.pc.addIceCandidate(candidate).catch(() => {});
+          }
+        }
+
         if (description.type === 'offer') {
           const answer = await this.pc.createAnswer();
           const tunedAnswer: RTCSessionDescriptionInit = {
@@ -463,11 +510,15 @@ export class WebRtcCallManager {
           }
         }
       } else if (payload.kind === 'ice' && payload.candidate) {
-        try {
-          await this.pc.addIceCandidate(payload.candidate);
-        } catch {
-          if (!this.ignoreOffer) {
-            // Ignore stale candidates during rollback
+        if (!this.pc.remoteDescription) {
+          this.pendingIceCandidates.push(payload.candidate);
+        } else {
+          try {
+            await this.pc.addIceCandidate(payload.candidate);
+          } catch {
+            if (!this.ignoreOffer) {
+              // Ignore stale candidates during rollback
+            }
           }
         }
       }

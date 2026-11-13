@@ -68,6 +68,7 @@ export default function App() {
 
   const mediaRef = useRef<ManagedLocalMedia | null>(null);
   const rtcRef = useRef<WebRtcCallManager | null>(null);
+  const mediaSeqRef = useRef(0);
   const [devices, setDevices] = useState<MediaDeviceList>({
     audioInputs: [],
     audioOutputs: [],
@@ -94,6 +95,7 @@ export default function App() {
   }, []);
 
   const stopMediaAndCall = useCallback(() => {
+    mediaSeqRef.current += 1;
     rtcRef.current?.destroy();
     rtcRef.current = null;
     mediaRef.current?.stopAll();
@@ -101,6 +103,7 @@ export default function App() {
   }, []);
 
   const setupLocalMedia = useCallback(async () => {
+    const seq = ++mediaSeqRef.current;
     const s = useSettingsStore.getState();
     const call = useCallStore.getState();
 
@@ -123,6 +126,11 @@ export default function App() {
         },
       });
 
+      if (seq !== mediaSeqRef.current) {
+        managed.stopAll();
+        return null;
+      }
+
       mediaRef.current = managed;
 
       const audioTrack = managed.stream.getAudioTracks()[0];
@@ -136,9 +144,12 @@ export default function App() {
       call.setLocalStream(managed.stream);
 
       const listed = await listMediaDevices();
-      setDevices(listed);
+      if (seq === mediaSeqRef.current) {
+        setDevices(listed);
+      }
       return managed;
     } catch (err) {
+      if (seq !== mediaSeqRef.current) return null;
       const name = err instanceof DOMException ? err.name : '';
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
         call.setError('MEDIA_DENIED');

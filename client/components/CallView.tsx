@@ -77,6 +77,9 @@ export function CallView({
     const el = remoteVideoRef.current;
     if (!el) return;
     el.srcObject = remoteStream;
+    if (remoteStream) {
+      void el.play().catch(() => {});
+    }
   }, [remoteStream]);
 
   useEffect(() => {
@@ -92,6 +95,7 @@ export function CallView({
     if (!el) return;
     if (localStream && (!cameraOff || isScreenSharing)) {
       el.srcObject = localStream;
+      void el.play().catch(() => {});
     } else {
       el.srcObject = null;
     }

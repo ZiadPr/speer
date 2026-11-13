@@ -83,11 +83,18 @@ export async function acquireManagedMedia(options: {
       video: videoConstraints,
     });
   } catch {
-    // Fallback: try audio-only if camera is unavailable
-    rawStream = await navigator.mediaDevices.getUserMedia({
-      audio: audioConstraints,
-      video: false,
-    });
+    try {
+      rawStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      });
+    } catch {
+      // Fallback: try audio-only if camera is unavailable
+      rawStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: false,
+      });
+    }
   }
 
   const rawAudioTrack = rawStream.getAudioTracks()[0] ?? null;
